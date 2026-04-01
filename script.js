@@ -4,12 +4,29 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 // 1. Scene Setup
 const canvasContainer = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
-scene.background = new THREE.Color('#ffffff'); // White background as requested
+// White background as requested - Removed for transparency
 
 const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 3000);
 camera.position.set(0, 0, 500);
 
+// 1.5. Mouse Interaction
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2(-9999, -9999);
+
+window.addEventListener('mousemove', (event) => {
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+});
+
+window.addEventListener('touchmove', (event) => {
+  if (event.touches.length > 0) {
+    mouse.x = (event.touches[0].clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.touches[0].clientY / window.innerHeight) * 2 + 1;
+  }
+}, { passive: true });
+
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setClearColor(0x000000, 0); // Transparent background
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // optimize performance
 canvasContainer.appendChild(renderer.domElement);
@@ -28,7 +45,7 @@ const palette = [
   '#2a9d8f', // Teal Green
   '#c85a17'  // Rust Orange
 ];
-const rootColor = '#222222'; // Dark gray for the core
+const rootColor = '#cccccc'; // Dark gray for the core
 
 // 3. Reusable Geometries
 const nodeGeometry = new THREE.BoxGeometry(1, 1, 1);
@@ -162,11 +179,11 @@ scene.add(mainSystem);
 // Add Root Node - Removed as requested
 
 // Bounding structures for the main sphere
-const MAIN_RADIUS = 180;
-mainSystem.add(createFaintSphere(MAIN_RADIUS * 1.05, '#cccccc', 0.1));
-mainSystem.add(createOrbitRing(MAIN_RADIUS * 1.05, '#cccccc', 0.15).rotateX(Math.PI / 2));
-mainSystem.add(createOrbitRing(MAIN_RADIUS * 1.05, '#cccccc', 0.15).rotateY(Math.PI / 2));
-mainSystem.add(createOrbitRing(MAIN_RADIUS * 1.05, '#cccccc', 0.15)); // Z
+const MAIN_RADIUS = 200;
+mainSystem.add(createFaintSphere(MAIN_RADIUS * 1.05, '#cccccc', 0));
+mainSystem.add(createOrbitRing(MAIN_RADIUS * 1.05, '#000', 0.05).rotateX(Math.PI / 2));
+mainSystem.add(createOrbitRing(MAIN_RADIUS * 1.05, '#000', 0.05).rotateY(Math.PI / 2));
+mainSystem.add(createOrbitRing(MAIN_RADIUS * 1.05, '#000', 0.05)); // Z
 
 // Tracking groups that will animate their rotation
 const animGroups = [];
@@ -182,13 +199,10 @@ const R4_HEIGHT = 10; // Vertical height from depth2 to depth4
 
 
 
-const depth1Positions = [];
-const depth1Colors = [];
-
 for (let i = 0; i < DEPTH1_COUNT; i++) {
   // ---------------- DEPTH 1 (Sub-Centers) ----------------
   const depth1Group = new THREE.Group();
-  
+
   // Randomize distance from center 80% ~ 100%
   const R1_random = R1 * (0.8 + Math.random() * 0.2);
   const depth1Pos = getRandomSurfacePoint(R1_random);
@@ -204,12 +218,30 @@ for (let i = 0; i < DEPTH1_COUNT; i++) {
   const randomScale = 0.5 + Math.random() * 0.7;
   depth1Group.scale.setScalar(randomScale);
 
-  mainSystem.add(depth1Group);
-  animGroups.push(depth1Group);
+  // Orbit Group to make each depth1 revolve around the center independently
+  const orbitGroup = new THREE.Group();
+  orbitGroup.userData = {
+    rotAxis: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(),
+    rotSpeed: (Math.random() - 0.5) * 0.005 // Random orbit direction and speed
+  };
+  orbitGroup.add(depth1Group);
+  mainSystem.add(orbitGroup);
+  animGroups.push(orbitGroup);
+  animGroups.push(depth1Group); // keep original spinning on its own axis
 
   const depth1Col = palette[i % palette.length];
-  depth1Positions.push(depth1Pos);
-  depth1Colors.push(depth1Col);
+
+  // Draw line from root [0,0,0] to this depth1Pos inside the orbit group
+  const rootLine = createLinesToChildren([depth1Pos], rootColor, [depth1Col]);
+  rootLine.material = new THREE.LineDashedMaterial({
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.45,
+    dashSize: 5,
+    gapSize: 3
+  });
+  rootLine.computeLineDistances();
+  orbitGroup.add(rootLine);
 
   // Base node for depth1 - Removed as requested
 
@@ -245,7 +277,7 @@ for (let i = 0; i < DEPTH1_COUNT; i++) {
 
   bgGeom.setIndex(bgIndices);
   bgGeom.setAttribute('position', new THREE.BufferAttribute(bgPositions, 3));
-  
+
   const bgMesh = new THREE.Mesh(bgGeom, bgMat);
   depth1Group.add(bgMesh);
   depth1Group.userData.bgGeometry = bgGeom;
@@ -258,13 +290,17 @@ for (let i = 0; i < DEPTH1_COUNT; i++) {
     { freq: 8 + Math.floor(Math.random() * 6), amp: 0.02, phase: Math.random() * Math.PI * 2, speed: 1.2 + Math.random() * 2.5 }
   ];
 
+  // Randomized base radius for 2-depth face
+  const localR2 = R2 * (0.6 + Math.random() * 0.6); // Random range: 60% ~ 120% of R2
+
   // Tag group for easy identification in animate loop and store data
   depth1Group.userData.isDepth1 = true;
   depth1Group.userData.waveLayers = waveLayers;
-  depth1Group.userData.depth2Nodes = []; 
-  depth1Group.userData.depth3Nodes = []; 
-  depth1Group.userData.depth4Nodes = []; 
+  depth1Group.userData.depth2Nodes = [];
+  depth1Group.userData.depth3Nodes = [];
+  depth1Group.userData.depth4Nodes = [];
   depth1Group.userData.depth1Pos = depth1Pos;
+  depth1Group.userData.localR2 = localR2;
 
   // Generate depth2, depth3, and depth4 nodes
   let depth2Positions = [];
@@ -277,14 +313,15 @@ for (let i = 0; i < DEPTH1_COUNT; i++) {
     // ---------------- DEPTH 2 ----------------
     const depth2Group = new THREE.Group();
     const angle = (j / DEPTH2_COUNT) * Math.PI * 2;
-    depth2Group.userData.angle = angle; 
+    depth2Group.userData.angle = angle;
+    depth2Group.userData.currentRepulsion = 0; // initialize repulsion
 
     let waveValue = 0;
     waveLayers.forEach(layer => {
       waveValue += Math.sin(angle * layer.freq + layer.phase) * layer.amp;
     });
 
-    const organicR2 = R2 * (0.9 + waveValue);
+    const organicR2 = localR2 * (0.9 + waveValue);
     const depth2Pos = getCirclePointAtAngle(organicR2, depth1Pos, angle);
     depth2Group.position.copy(depth2Pos);
     depth1Group.add(depth2Group);
@@ -326,26 +363,30 @@ for (let i = 0; i < DEPTH1_COUNT; i++) {
   depth1Group.userData.lineSegments3 = lines3;
 }
 
-// Link Root center to depth1 groups
-mainSystem.add(createLinesToChildren(depth1Positions, rootColor, depth1Colors));
+// Link Root center to depth1 groups (now handled individually in orbit groups)
 
 
 // 5. Animation Loop
 const clock = new THREE.Clock();
+
+const tempVector = new THREE.Vector3();
 
 function animate() {
   requestAnimationFrame(animate);
   const elapsedTime = clock.getElapsedTime();
   const delta = clock.getDelta();
 
+  // Update mouse raycaster
+  raycaster.setFromCamera(mouse, camera);
+
   // Slow planetary rotation of the entire system
   mainSystem.rotation.y += 0.002;
   mainSystem.rotation.x += 0.0008;
 
   // Animate the organic breathing/pulsing for each depth1 group
-  mainSystem.children.forEach(group => {
-    if (group.userData.isDepth1) {
-      const { waveLayers, depth2Nodes, depth3Nodes, depth4Nodes, lineSegments, lineSegments3, bgGeometry, depth1Pos } = group.userData;
+  mainSystem.traverse(group => {
+    if (group.userData && group.userData.isDepth1) {
+      const { waveLayers, depth2Nodes, depth3Nodes, depth4Nodes, lineSegments, lineSegments3, bgGeometry, depth1Pos, localR2 } = group.userData;
       const linePositions2 = lineSegments.geometry.attributes.position.array;
       const linePositions3 = lineSegments3.geometry.attributes.position.array;
       const bgPositions = bgGeometry.attributes.position.array;
@@ -355,25 +396,38 @@ function animate() {
         const node3 = depth3Nodes[j];
         const node4 = depth4Nodes[j];
         const angle = node2.userData.angle;
-        
+
         // Dynamic wave value over time
         let waveValue = 0;
         waveLayers.forEach(layer => {
           waveValue += Math.sin(angle * layer.freq + layer.phase + elapsedTime * layer.speed) * layer.amp;
         });
 
-        const organicR2 = R2 * (0.9 + waveValue);
-        const organicR3 = organicR2 + R3_OFFSET;
-        
-        const newPos2 = getCirclePointAtAngle(organicR2, depth1Pos, angle);
+        // Calculate mouse interaction / repulsion
+        node2.getWorldPosition(tempVector);
+        const distToRay = raycaster.ray.distanceToPoint(tempVector);
+        let targetRepulsion = 0;
+
+        // Use a wide radius and smooth, gentle falloff
+        if (distToRay < 200) {
+          targetRepulsion = (200 - distToRay) * 0.15; // Broader, weaker spreading force
+        }
+
+        // Smooth interpolation (slower interaction to feel heavier/duller)
+        node2.userData.currentRepulsion += (targetRepulsion - node2.userData.currentRepulsion) * 0.04;
+
+        const activeR2 = (localR2 * (0.9 + waveValue)) + node2.userData.currentRepulsion;
+        const organicR3 = activeR2 + R3_OFFSET;
+
+        const newPos2 = getCirclePointAtAngle(activeR2, depth1Pos, angle);
         const newPos3 = getCirclePointAtAngle(organicR3, depth1Pos, angle);
         const newPos4 = newPos2.clone().add(verticalDir.clone().multiplyScalar(R4_HEIGHT));
-        
+
         // Update positions
         node2.position.copy(newPos2);
         node3.position.copy(newPos3);
         node4.position.copy(newPos4);
-        
+
         // Update Line 2 (0,0,0 to Depth 2)
         linePositions2[j * 6 + 3] = newPos2.x;
         linePositions2[j * 6 + 4] = newPos2.y;
@@ -392,7 +446,7 @@ function animate() {
         bgPositions[(j + 1) * 3 + 1] = newPos2.y;
         bgPositions[(j + 1) * 3 + 2] = newPos2.z;
       });
-      
+
       lineSegments.geometry.attributes.position.needsUpdate = true;
       lineSegments3.geometry.attributes.position.needsUpdate = true;
       bgGeometry.attributes.position.needsUpdate = true;

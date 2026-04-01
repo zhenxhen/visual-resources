@@ -4,11 +4,107 @@ body, html {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background-color: #ffffff;
 }
 
 #canvas-container {
     width: 100vw;
     height: 100vh;
     display: block;
+}
+
+#ui-panel {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: transparent;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    padding: 20px 30px;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    min-width: 250px;
+}
+
+.control-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+}
+
+.save-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.icon-btn {
+    background: transparent;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #444;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+}
+
+.icon-btn:hover {
+    background: transparent;
+    border-color: #d0d0d0;
+    color: #000;
+    transform: translateY(-1px);
+}
+
+.icon-btn:active {
+    transform: translateY(1px);
+}
+
+#save-size {
+    padding: 10px 14px;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    background: transparent;
+    font-size: 14px;
+    font-weight: 500;
+    color: #444;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+}
+
+#save-size:hover {
+    border-color: #d0d0d0;
+}
+
+#seed-input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    background: transparent;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.02);
+}
+
+#seed-input:focus {
+    border-color: #0088cc;
+    box-shadow: 0 0 0 3px rgba(0, 136, 204, 0.1);
 }
