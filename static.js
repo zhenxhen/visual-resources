@@ -297,11 +297,7 @@ function buildScene() {
       mainSystem.add(createOrbitRing(MAIN_RADIUS * 1.05, '#000', 0.05));
     }
   } else {
-    if (isInverted) {
-      renderer.setClearColor(selected2DColor, 1);
-    } else {
-      renderer.setClearColor(0x000000, 0);
-    }
+    renderer.setClearColor(0x000000, 0);
   }
 
   const DEPTH1_COUNT = is2DMode ? 1 : 18;
@@ -339,7 +335,7 @@ function buildScene() {
     mainSystem.add(orbitGroup);
 
     const depth1Col = is2DMode ? selected2DColor : palette[i % palette.length];
-    const finalShapeCol = (is2DMode && isInverted) ? '#ffffff' : depth1Col;
+    const finalShapeCol = depth1Col;
 
     // Dashed line from root to depth1
     if (!is2DMode && showGuides) {
@@ -383,7 +379,9 @@ function buildScene() {
     bgGeom.setAttribute('position', new THREE.BufferAttribute(bgPositions, 3));
 
     const bgMesh = new THREE.Mesh(bgGeom, bgMat);
-    depth1Group.add(bgMesh);
+    if (!(is2DMode && isInverted)) {
+      depth1Group.add(bgMesh);
+    }
 
     // Wave layers — frozen at a random time
     const frozenTime = rng() * 100;
@@ -446,7 +444,9 @@ function buildScene() {
 
     // Lines depth1→depth2
     const lines2 = createLinesToChildren(depth2Positions, finalShapeCol, Array(DEPTH2_COUNT).fill(finalShapeCol));
-    depth1Group.add(lines2);
+    if (!(is2DMode && isInverted)) {
+      depth1Group.add(lines2);
+    }
 
     // Lines depth2→depth3
     const lines3 = createSegmentLines(depth2Positions, depth3Positions, finalShapeCol, finalShapeCol);
@@ -494,11 +494,7 @@ async function exportPNG(scale) {
 
   // Create a temporary tile renderer
   const exportRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-  if (is2DMode && isInverted) {
-    exportRenderer.setClearColor(selected2DColor, 1);
-  } else {
-    exportRenderer.setClearColor(0x000000, 0);
-  }
+  exportRenderer.setClearColor(0x000000, 0);
   exportRenderer.setSize(baseW, baseH);
   exportRenderer.setPixelRatio(1);
 
